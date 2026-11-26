@@ -10,7 +10,11 @@ import unittest
 from io import BytesIO, StringIO
 from pathlib import Path
 
-from tools.prepare_dataset import blind_candidates_manifest, read_archive, train_validation_manifest
+from tools.prepare_dataset import (
+    build_blind_test_manifest,
+    build_train_validation_manifest,
+    read_and_validate_archive,
+)
 from tools.annotate_blind_test import Application, load_manifest
 
 
@@ -54,27 +58,26 @@ class DatasetManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "data.tgz"
             make_archive(path, {"ACCEPTED": 10, "REJECTED": 5, "SKIPPED_INVALID_FORMAT": 5})
-            audit = read_archive(path)
-            one = train_validation_manifest(audit["rows"], audit["archive_sha256"], 123)
-            two = train_validation_manifest(audit["rows"], audit["archive_sha256"], 123)
+            audit = read_and_validate_archive(path)
+            one = build_train_validation_manifest(audit["rows"], audit["archive_sha256"], 123)
+            two = build_train_validation_manifest(audit["rows"], audit["archive_sha256"], 123)
             self.assertEqual(one, two)
             self.assertEqual((one["counts"]["train"], one["counts"]["validation"]), (16, 4))
             self.assertEqual(one["counts"]["by_source"]["ACCEPTED"], {
                 "total": 10, "train": 8, "validation": 2
             })
-            train = {x["filename"] for x in one["train"]}
-            validation = {x["filename"] for x in one["validation"]}
+            train = {x for group in one["train_sample_ids_by_source"].values() for x in group}
+            validation = {x for group in one["validation_sample_ids_by_source"].values() for x in group}
             self.assertFalse(train & validation)
             self.assertEqual(len(train | validation), 20)
-            self.assertNotIn("code", one["train"][0])
 
     def test_blind_sample_and_reserve_are_deterministic(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "data.tgz"
             make_archive(path, {"ACCEPTED": 10}, extras=287)
-            audit = read_archive(path)
-            one = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], 456)
-            two = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], 456)
+            audit = read_and_validate_archive(path)
+            one = build_blind_test_manifest(audit["candidates"], audit["archive_sha256"], 456)
+            two = build_blind_test_manifest(audit["candidates"], audit["archive_sha256"], 456)
             self.assertEqual(one, two)
             self.assertEqual((len(one["primary"]), len(one["reserve"])), (200, 87))
             primary = {x["filename"] for x in one["primary"]}
@@ -84,7 +87,7 @@ class DatasetManifestTests(unittest.TestCase):
     def test_archive_rejects_hash_mismatch(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "bad.tgz"
-            images = make_archive(path, {"ACCEPTED": 2}, extras=1)
+            make_archive(path, {"ACCEPTED": 2}, extras=1)
             with tarfile.open(path, "r:gz") as archive:
                 csv_bytes = archive.extractfile("hard_labeling/train_1100.csv").read()
                 entries = [(m.name, archive.extractfile(m).read()) for m in archive.getmembers()
@@ -101,7 +104,7 @@ class DatasetManifestTests(unittest.TestCase):
                     info.size = len(data)
                     archive.addfile(info, BytesIO(data))
             with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
-                read_archive(path)
+                read_and_validate_archive(path)
 
 
 class AnnotationTests(unittest.TestCase):
