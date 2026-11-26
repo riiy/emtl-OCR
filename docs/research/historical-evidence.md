@@ -1,0 +1,77 @@
+# 历史 OCR 研究证据
+
+本文件将历史会话记录、当前可读取文件和仍然未知的内容分开记录。历史报告数字不等同于本仓库已经重新运行的结果。
+
+## 1. 证据来源
+
+| 来源 | 当前状态 | 用途 |
+|---|---|---|
+| `conversations-005.json` 中的“推荐轻量验证码识别方案”会话 | 完整会话可读取 | 研究时间线、用户决策和历史实验报告 |
+| `captcha_train_1100.tgz` | 原始归档已恢复 | 1,100 条标签和 1,387 张图片 |
+| `reviewed.csv` | 已恢复 | 100 条历史人工审核标签及 OCR 预标注 |
+| `heldout_predictions.csv` | 已恢复 | 100 条历史 CNN 逐张预测 |
+| `heldout_predictions.json` | 已恢复 | 历史 96/100 与 ddddOCR 配对汇总 |
+| `captcha_samples.tgz` / `emtl_captcha_labels.csv` | 已恢复 | 20 张早期远程来源探索样本；不公开 |
+| `captcha_tinycnn_experiment_v1.zip` | 附件记录存在，但无可下载 backing file | 原始训练包尚未恢复 |
+| `captcha_tinycnn_runtime_v1.zip` | 附件记录存在，但无可下载 backing file | 原始运行包尚未恢复 |
+| `riiy/emtl` 中的推理代码和模型 | 可从公开仓库读取 | 冻结模型结构及权重参考 |
+
+历史会话导出中有两个相同字节的副本；它们不是两份独立研究证据。
+
+## 2. 历史研究时间线
+
+1. **通用 OCR 与传统图像处理探索**：比较 ddddOCR、GLM-OCR、RapidOCR、PaddleOCR-VL，以及 Pillow 模板/图像处理方案。
+2. **通用模型互补性 Kill Test**：早期 20 张开发样本中，GLM-OCR 为 8/20，ddddOCR 1.6.1 为 11/20；后续四引擎实验记录 ddddOCR 默认 12/20、纯数字限制 12/20、RapidOCR 7/20、PaddleOCR-VL 4/20。该 20 张图片来自远程服务，不纳入公开数据。
+3. **困难样本标注**：使用 ddddOCR 预标注并由人工核对；形成 1,000 张 ACCEPTED 和额外人工标注的 REJECTED / SKIPPED 样本。
+4. **第一轮 tiny-CNN 训练**：历史会话报告训练 90 个 Epoch，最佳检查点为 Epoch 65，训练集准确率 100%。原始训练脚本、优化器、学习率、Batch Size、增强配置和训练日志尚未恢复。
+5. **内部验证**：历史报告为 216/220（98.18%），其中 ACCEPTED 196/200、REJECTED 6/6、SKIPPED 14/14。
+6. **纯 Python 推理**：历史报告称 220 张内部验证图片的纯 Python + Pillow 推理结果与 PyTorch 参考结果完全一致。
+7. **独立验收**：历史记录为 CNN 96/100，ddddOCR 66/100，CNN 前导零样本 10/10。逐张标签和预测记录仍在，但原始 100 张图片已无法找到，因此不能重新运行该历史测试。
+
+## 3. 历史配对结果
+
+历史 `heldout_predictions.json` 记录：
+
+| 配对结果 | 图片数 |
+|---|---:|
+| 两者均正确 | 64 |
+| 仅 tiny-CNN 正确 | 32 |
+| 仅 ddddOCR 正确 | 2 |
+| 两者均错误 | 2 |
+| **合计** | **100** |
+
+因此历史报告中的 CNN 为 96/100，ddddOCR 为 66/100。
+
+**重要限制：** 历史汇总 JSON 未记录该 66/100 所用的准确 ddddOCR 版本。历史早期 20 张探索实验使用过 ddddOCR 1.6.1，但不能据此推定 100 张独立验收也使用了 1.6.1。新 Benchmark 将分别测试 1.4.11 和 1.6.1。
+
+## 4. 历史模型结构
+
+公开的 emtl 冻结推理实现 `src/emtl/_ocr_lightweight.py` 描述了一个 83,984 参数的 tiny-CNN，采用三层 3×3、stride-2 卷积（通道数 3→8→16→24），随后是 128 单元全连接层和 40 输出的全连接层（4 个位置 × 10 个数字）。
+
+- [历史纯 Python 推理实现](https://github.com/riiy/emtl/blob/master/src/emtl/_ocr_lightweight.py)
+- [历史冻结模型权重文件](https://github.com/riiy/emtl/blob/master/src/emtl/models/tiny_captcha_model.b64)
+
+推理代码注释记录的解码模型审计 SHA-256 为：
+
+`27dc2423ad452a3a723ba0d3ccc8d57a81bfda0238497baf94ce22926585cf4a`
+
+这能证明历史冻结模型的推理结构和权重仍可参考，但不能替代缺失的 PyTorch 训练代码或原始训练检查点。
+
+## 5. 历史性能记录
+
+- i5-3210M / Linux x86_64 / Python 3.11.11：历史 P50 53.82 ms、P95 54.90 ms、最大 57.34 ms。
+- 源码编译 Pillow 的精简环境：历史 P50 54.46 ms、P95 55.76 ms、最大 58.48 ms。
+- 精简环境 OCR 运行文件统计为 5,721,124 bytes；该数字不包含系统共享库，且不代表普通 Pillow Wheel 安装体积。
+- 这些历史性能数据仅作为工程参考。本仓库不设置安装体积或延迟硬性发布门槛。
+
+## 6. 已知缺失和研究局限
+
+- 历史训练包和运行包的附件记录仍可见，但当前没有可下载 backing file；恢复操作返回“no downloadable backing file”。
+- 原始训练脚本、完整训练日志、训练配置和 Epoch 65 Checkpoint 尚未恢复。
+- 历史 100 张独立验收图片原件缺失，历史准确率不可重新计算。
+- 原始本地验证码生成程序已丢失。
+- 使用的操作系统字体或开源字体具体名称无法恢复。
+- 历史 100 张测试的 ddddOCR 精确版本未知。
+- 历史内部验证和独立验收结果不能替代新的冻结盲测。
+
+因此，新训练属于重建实验；新的 200 张盲测集将提供后续可复现的正式比较依据。
