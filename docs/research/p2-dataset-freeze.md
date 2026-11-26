@@ -31,7 +31,7 @@ P2 使用已恢复的 captcha_train_1100.tgz。归档包含 1,387 张 101×36 JP
 | SKIPPED_INVALID_FORMAT | 56 | 14 | 70 |
 | **合计** | **880** | **220** | **1,100** |
 
-清单只记录文件名、来源、sample_id 和 SHA-256，不包含标签。训练代码在本地将清单与原始 CSV 按文件名连接，标签始终按四位字符串处理。
+清单按 source 保存 train/validation 的 sample_id 列表，不包含标签或图片内容。sample_id 是原始 CSV 中的唯一键；后续训练流程在本地将其与 hard_labeling/train_1100.csv 连接，标签始终按四位字符串处理。
 
 文件：datasets/manifests/train-validation-manifest.json.gz
 
@@ -42,6 +42,7 @@ P2 使用已恢复的 captcha_train_1100.tgz。归档包含 1,387 张 101×36 JP
 - 首选候选：200 张。
 - 备用候选：87 张。
 - 抽样前按归档路径排序，再使用固定种子洗牌；洗牌后的前 200 张为首选，后 87 张为备用。
+- 清单记录每张图片的归档路径和 SHA-256。
 
 文件：datasets/manifests/blind-test-candidates.json.gz
 
@@ -92,9 +93,10 @@ annotations.json 是自动保存的本地进度；images/ 是从原归档提取�
 
     python tools/prepare_dataset.py \
       --archive ~/captcha_train_1100.tgz \
-      --output-dir datasets/manifests
+      --output-dir datasets/manifests \
+      --gzip
 
-该命令默认确定性生成压缩的 .json.gz 清单，并重新检查 1,100 条标签引用、图片 SHA-256、未引用候选图片。默认种子固定为 20261126 和 20261127。如需输出普通 JSON，可使用 --no-gzip。
+该命令重新检查 1,100 条标签引用、图片 SHA-256、未引用候选图片，并重建三个 JSON 清单。--gzip 会确定性生成压缩的 .json.gz 清单。默认种子固定为 20261126 和 20261127。如需输出普通 JSON，可省略 --gzip。
 
 如需重新生成已冻结的数据版本，不应覆盖原清单；应创建新的数据版本并记录原因。
 
