@@ -10,11 +10,7 @@ import unittest
 from io import BytesIO, StringIO
 from pathlib import Path
 
-from tools.prepare_dataset import (
-    blind_candidates_manifest,
-    read_archive,
-    train_validation_manifest,
-)
+from tools.prepare_dataset import blind_candidates_manifest, read_archive, train_validation_manifest
 from tools.annotate_blind_test import Application, load_manifest
 
 
@@ -75,15 +71,37 @@ class DatasetManifestTests(unittest.TestCase):
     def test_blind_sample_and_reserve_are_deterministic(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "data.tgz"
-            make_archive(path, {"ACCEPTED": 10}, extras=5)
+            make_archive(path, {"ACCEPTED": 10}, extras=287)
             audit = read_archive(path)
             one = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], 456)
             two = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], 456)
             self.assertEqual(one, two)
-            self.assertEqual((len(one["primary"]), len(one["reserve"])), (5, 0)) if False else None
-            small = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], 456)
-            self.assertEqual(len(small["primary"]), 5)
-            self.assertEqual(len(small["reserve"]), 0)
+            self.assertEqual((len(one["primary"]), len(one["reserve"])), (200, 87))
+            primary = {x["filename"] for x in one["primary"]}
+            reserve = {x["filename"] for x in one["reserve"]}
+            self.assertFalse(primary & reserve)
+
+    def test_archive_rejects_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "bad.tgz"
+            images = make_archive(path, {"ACCEPTED": 2}, extras=1)
+            with tarfile.open(path, "r:gz") as archive:
+                csv_bytes = archive.extractfile("hard_labeling/train_1100.csv").read()
+                entries = [(m.name, archive.extractfile(m).read()) for m in archive.getmembers()
+                           if m.isfile() and m.name.startswith("images/")]
+            rows = list(csv.DictReader(csv_bytes.decode().splitlines()))
+            rows[0]["sha256"] = "0" * 64
+            text = StringIO()
+            writer = csv.DictWriter(text, fieldnames=["filename", "code", "source", "sample_id", "sha256"])
+            writer.writeheader()
+            writer.writerows(rows)
+            with tarfile.open(path, "w:gz") as archive:
+                for name, data in [("hard_labeling/train_1100.csv", text.getvalue().encode()), *entries]:
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    archive.addfile(info, BytesIO(data))
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                read_archive(path)
 
 
 class AnnotationTests(unittest.TestCase):
@@ -92,9 +110,10 @@ class AnnotationTests(unittest.TestCase):
             root = Path(temp)
             archive = root / "data.tgz"
             images = make_archive(archive, {"ACCEPTED": 1}, extras=4)
-            records = []
-            for name, data in images.items():
-                records.append({"filename": name, "sha256": hashlib.sha256(data).hexdigest()})
+            records = [
+                {"filename": name, "sha256": hashlib.sha256(data).hexdigest()}
+                for name, data in images.items()
+            ]
             primary = [{**records[0], "role": "primary"}, {**records[1], "role": "primary"}]
             reserve = [{**records[i], "role": "reserve"} for i in range(2, 5)]
             manifest = {
@@ -126,7 +145,10 @@ class AnnotationTests(unittest.TestCase):
             root = Path(temp)
             archive = root / "data.tgz"
             images = make_archive(archive, {"ACCEPTED": 1}, extras=1)
-            records = [{"filename": n, "sha256": hashlib.sha256(b).hexdigest()} for n, b in images.items()]
+            records = [
+                {"filename": name, "sha256": hashlib.sha256(data).hexdigest()}
+                for name, data in images.items()
+            ]
             manifest = {
                 "schema_version": 1,
                 "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
