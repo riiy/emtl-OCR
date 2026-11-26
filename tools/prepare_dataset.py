@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the recovered archive and build deterministic, metadata-only P2 manifests."""
+"""Audit the recovered CAPTCHA archive and create deterministic P2 manifests."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from collections import Counter, defaultdict
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-CSV_PATH = "hard_labeling/train_1100.csv"
+LABEL_CSV = "hard_labeling/train_1100.csv"
 IMAGE_PREFIX = "images/"
 SOURCES = {"ACCEPTED", "REJECTED", "SKIPPED_INVALID_FORMAT"}
 LABEL_RE = re.compile(r"^[0-9]{4}$")
@@ -35,23 +35,23 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_archive(path: Path) -> dict[str, Any]:
+def read_and_validate_archive(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(path)
     archive_hash = file_sha256(path)
     with tarfile.open(path, "r:gz") as archive:
         files = {}
         for member in archive.getmembers():
-            item_path = PurePosixPath(member.name)
-            if item_path.is_absolute() or ".." in item_path.parts or "\\" in member.name:
+            member_path = PurePosixPath(member.name)
+            if member_path.is_absolute() or ".." in member_path.parts or "\\" in member.name:
                 raise ValueError("Unsafe archive path: " + member.name)
             if member.isfile():
                 if member.name in files:
                     raise ValueError("Duplicate archive member: " + member.name)
                 files[member.name] = member
-        if CSV_PATH not in files:
-            raise ValueError("Missing " + CSV_PATH)
-        csv_bytes = archive.extractfile(files[CSV_PATH]).read()
+        if LABEL_CSV not in files:
+            raise ValueError("Missing " + LABEL_CSV)
+        csv_bytes = archive.extractfile(files[LABEL_CSV]).read()
         rows = list(csv.DictReader(csv_bytes.decode("utf-8-sig").splitlines()))
         required = {"filename", "code", "source", "sample_id", "sha256"}
         if not rows or not required.issubset(rows[0]):
@@ -111,10 +111,10 @@ def read_archive(path: Path) -> dict[str, Any]:
             candidates[name] = sha256(data)
 
     all_hashes = [row["sha256"] for row in normalized] + list(candidates.values())
-    if len(all_hashes) != len(set(all_hashes)):
-        raise ValueError("Duplicate image content detected by SHA-256")
     if len(normalized) + len(candidates) != len(image_names):
         raise ValueError("Image inventory does not reconcile with CSV references")
+    if len(all_hashes) != len(set(all_hashes)):
+        raise ValueError("Duplicate image content detected by SHA-256")
     return {
         "archive_sha256": archive_hash,
         "csv_sha256": sha256(csv_bytes),
@@ -126,56 +126,67 @@ def read_archive(path: Path) -> dict[str, Any]:
     }
 
 
-def train_validation_manifest(rows: list[dict[str, str]], archive_hash: str, seed: int) -> dict[str, Any]:
+def build_train_validation_manifest(
+    rows: list[dict[str, str]], archive_sha256: str, seed: int,
+    train_fraction: float = 0.8,
+) -> dict[str, Any]:
+    if not 0 < train_fraction < 1:
+        raise ValueError("train_fraction must be between 0 and 1")
     grouped = defaultdict(list)
     for row in rows:
         grouped[row["source"]].append(row)
     rng = random.Random(seed)
-    train, validation, by_source = [], [], {}
+    train_ids, validation_ids, by_source = {}, {}, {}
     for source in sorted(grouped):
-        group = sorted(grouped[source], key=lambda row: row["filename"])
+        group = sorted(grouped[source], key=lambda item: item["filename"])
         rng.shuffle(group)
-        n_train = int(len(group) * 0.8 + 0.5)
-        train.extend(group[:n_train])
-        validation.extend(group[n_train:])
+        n_train = int(len(group) * train_fraction + 0.5)
+        train_ids[source] = sorted(row["sample_id"] for row in group[:n_train])
+        validation_ids[source] = sorted(row["sample_id"] for row in group[n_train:])
         by_source[source] = {
-            "total": len(group), "train": n_train, "validation": len(group) - n_train
+            "total": len(group), "train": n_train, "validation": len(group) - n_train,
         }
-    def public_row(row: dict[str, str]) -> dict[str, str]:
-        # Labels stay in the local source CSV; this manifest contains membership only.
-        return {key: row[key] for key in ("filename", "source", "sample_id", "sha256")}
-    train.sort(key=lambda row: row["filename"])
-    validation.sort(key=lambda row: row["filename"])
     return {
         "schema_version": 1,
         "dataset": "captcha_train_1100",
-        "archive_sha256": archive_hash,
+        "archive_sha256": archive_sha256,
         "seed": seed,
-        "train_fraction": 0.8,
+        "train_fraction": train_fraction,
+        "membership_key": "sample_id; join with the local source CSV",
         "counts": {
-            "total": len(rows), "train": len(train), "validation": len(validation),
+            "total": len(rows),
+            "train": sum(len(value) for value in train_ids.values()),
+            "validation": sum(len(value) for value in validation_ids.values()),
             "by_source": by_source,
         },
-        "train": [public_row(row) for row in train],
-        "validation": [public_row(row) for row in validation],
+        "train_sample_ids_by_source": train_ids,
+        "validation_sample_ids_by_source": validation_ids,
     }
 
 
-def blind_candidates_manifest(candidates: dict[str, str], archive_hash: str, seed: int) -> dict[str, Any]:
-    items = sorted(candidates.items())
+def build_blind_test_manifest(
+    candidate_hashes: dict[str, str], archive_sha256: str, seed: int,
+    blind_count: int = 200,
+) -> dict[str, Any]:
+    candidates = sorted(candidate_hashes.values())
+    if blind_count < 1 or blind_count > len(candidates):
+        raise ValueError("Not enough blind-test candidates")
     rng = random.Random(seed)
-    rng.shuffle(items)
-    def records(part: list[tuple[str, str]], role: str) -> list[dict[str, str]]:
-        return [{"filename": name, "sha256": digest, "role": role} for name, digest in part]
+    rng.shuffle(candidates)
+    def records(values: list[str], role: str) -> list[dict[str, str]]:
+        return [
+            {"filename": "images/" + digest + ".img", "sha256": digest, "role": role}
+            for digest in values
+        ]
     return {
         "schema_version": 1,
         "dataset": "captcha_blind_test_candidates",
-        "archive_sha256": archive_hash,
+        "archive_sha256": archive_sha256,
         "seed": seed,
-        "target_labeled_count": 200,
-        "candidate_count": len(items),
-        "primary": records(items[:200], "primary"),
-        "reserve": records(items[200:], "reserve"),
+        "target_labeled_count": blind_count,
+        "candidate_count": len(candidates),
+        "primary": records(candidates[:blind_count], "primary"),
+        "reserve": records(candidates[blind_count:], "reserve"),
         "annotation_policy": {
             "manual_only": True,
             "ocr_predictions_visible": False,
@@ -200,10 +211,10 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     temp.replace(path)
 
 
-def prepare(archive: Path, output: Path, gzip_manifests: bool = True) -> dict[str, Any]:
-    audit = read_archive(archive)
-    split = train_validation_manifest(audit["rows"], audit["archive_sha256"], TRAIN_SEED)
-    blind = blind_candidates_manifest(audit["candidates"], audit["archive_sha256"], BLIND_SEED)
+def prepare(archive: Path, output: Path, gzip_manifests: bool = False) -> dict[str, Any]:
+    audit = read_and_validate_archive(archive)
+    split = build_train_validation_manifest(audit["rows"], audit["archive_sha256"], TRAIN_SEED)
+    blind = build_blind_test_manifest(audit["candidates"], audit["archive_sha256"], BLIND_SEED)
     if (len(audit["rows"]), audit["image_count"], len(audit["candidates"])) != (1100, 1387, 287):
         raise SystemExit("Archive inventory differs from approved P2 baseline")
     expected = {
@@ -241,13 +252,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=Path("datasets/manifests"))
-    parser.add_argument("--no-gzip", action="store_true")
+    parser.add_argument("--gzip", action="store_true")
     args = parser.parse_args()
-    result = prepare(args.archive, args.output_dir, not args.no_gzip)
+    result = prepare(args.archive, args.output_dir, args.gzip)
+    audit = result["audit"]
     print(json.dumps({
-        "image_count": result["audit"]["image_count"],
-        "labeled_count": len(result["audit"]["rows"]),
-        "candidate_count": len(result["audit"]["candidates"]),
+        "image_count": audit["image_count"],
+        "labeled_count": len(audit["rows"]),
+        "candidate_count": len(audit["candidates"]),
         "split": result["split"]["counts"],
         "blind_primary": len(result["blind"]["primary"]),
         "blind_reserve": len(result["blind"]["reserve"]),
