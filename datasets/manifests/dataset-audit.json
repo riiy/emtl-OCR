@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "archive": "captcha_train_1100.tgz",
+  "archive_sha256": "90cb341f02c7db2658d5a25f3a21da431eb7108b3e56fb24da731ac06cb97494",
+  "training_csv_sha256": "f1f7c460528c138053fa4aea999e7c3e5bd53d35677ef548cb0ad200662c6d2f",
+  "image_count": 1387,
+  "labeled_count": 1100,
+  "unreferenced_count": 287,
+  "source_counts": {
+    "ACCEPTED": 1000,
+    "REJECTED": 30,
+    "SKIPPED_INVALID_FORMAT": 70
+  },
+  "leading_zero_label_count": 82,
+  "all_referenced_image_hashes_verified": true,
+  "all_unreferenced_candidate_hashes_computed": true,
+  "all_image_sha256_unique": true,
+  "labels_in_public_manifests": false
+}
