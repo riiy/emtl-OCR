@@ -37,7 +37,7 @@ nav{display:flex;justify-content:space-between;align-items:center;margin-top:22p
 <div id="status" class="status" role="status"></div>
 </main><script>
 const token=location.hash.slice(1);history.replaceState(null,"",location.pathname);
-let state=null,index=0,dirty=false;
+let state=null,index=0,dirty=false,initialized=false;
 const $=id=>document.getElementById(id);
 async function api(path,options={}){const r=await fetch(path,{...options,headers:{"Content-Type":"application/json","X-Labeler-Token":token,...options.headers}});const d=await r.json();if(!r.ok)throw Error(d.error||"请求失败");return d}
 function current(){return state.items[index]}
@@ -48,7 +48,7 @@ $("progress").textContent="有效标注 "+state.labeled+" / "+state.target+" · 
 $("prev").disabled=index===0;$("next").disabled=index===state.items.length-1;
 $("submit").disabled=state.labeled>=state.target&&(!existing||existing.status!=="labeled");
 }
-async function refresh(){state=await api("/api/state");if(index>=state.items.length)index=state.items.length-1;render()}
+async function refresh(){state=await api("/api/state");if(!initialized){const first=state.items.findIndex(x=>!state.latest[x.id]);index=first>=0?first:0;initialized=true}if(index>=state.items.length)index=state.items.length-1;render()}
 async function move(delta){if(dirty&&!confirm("当前输入尚未提交，确定离开并丢弃吗？"))return;index=Math.max(0,Math.min(state.items.length-1,index+delta));render()}
 async function act(status){const item=current(),label=$("label").value;if(status==="labeled"&&(!/^[0-9]{4}$/.test(label)||label.length!==4)){alert("请输入恰好四位 ASCII 数字，例如 0042");return}
 try{await api("/api/event",{method:"POST",body:JSON.stringify({image_id:item.id,status,label:status==="labeled"?label:null})});dirty=false;await refresh();
@@ -136,13 +136,19 @@ def make_handler(app: Labeler):
             origin = self.headers.get("Origin")
             if origin and origin not in {"http://127.0.0.1:8765", "http://localhost:8765"}:
                 return False
-            return secrets.compare_digest(self.headers.get("X-Labeler-Token", ""), app.token)
+            cookie = self.headers.get("Cookie", "")
+            cookie_token = next((part.split("=", 1)[1] for part in cookie.split("; ") if part.startswith("labeler_token=")), "")
+            supplied = self.headers.get("X-Labeler-Token", "") or cookie_token
+            return secrets.compare_digest(supplied, app.token)
 
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/" and self.headers.get("Host") in {"127.0.0.1:8765", "localhost:8765"}:
                 body = (PAGE.replace('const token=location.hash.slice(1);', 'const token=location.hash.slice(1);')).encode()
                 self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Set-Cookie", f"labeler_token={app.token}; HttpOnly; SameSite=Strict; Path=/")
+                self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'")
+                self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Length", str(len(body))); self.send_header("Cache-Control", "no-store")
                 self.end_headers(); self.wfile.write(body); return
             if not self._authorized():
