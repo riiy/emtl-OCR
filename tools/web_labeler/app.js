@@ -15,6 +15,8 @@
   let dirty = false;
   let savedInput = "";
   let busy = false;
+  let imageRequest = 0;
+  let currentImageUrl = null;
 
   async function request(path, options = {}) {
     const headers = { "X-Labeler-Token": token, ...(options.headers || {}) };
@@ -42,6 +44,29 @@
     ui.saveState.textContent = dirty ? "有未提交输入" : "所有更改实时保存到本地 JSONL";
     ui.saveState.classList.toggle("unsaved", dirty);
   }
+  async function loadImage(item) {
+    const requestId = ++imageRequest;
+    ui.image.hidden = true;
+    ui.placeholder.hidden = false;
+    ui.placeholder.textContent = "正在读取图片…";
+    try {
+      const response = await fetch("/api/image/" + encodeURIComponent(item.id), {
+        cache: "no-store",
+        headers: { "X-Labeler-Token": token }
+      });
+      if (!response.ok) throw new Error("图片读取失败（HTTP " + String(response.status) + "）");
+      const blob = await response.blob();
+      if (requestId !== imageRequest) return;
+      const objectUrl = URL.createObjectURL(blob);
+      if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+      currentImageUrl = objectUrl;
+      ui.image.onload = () => { ui.image.hidden = false; ui.placeholder.hidden = true; };
+      ui.image.onerror = () => { ui.placeholder.textContent = "图片读取失败，请检查本地归档"; };
+      ui.image.src = objectUrl;
+    } catch (error) {
+      if (requestId === imageRequest) ui.placeholder.textContent = error.message;
+    }
+  }
   function render() {
     const item = current();
     if (!item) return;
@@ -49,12 +74,7 @@
     ui.name.textContent = item.path;
     ui.status.textContent = item.status === "labeled" ? "已标注 · 可修改" : item.status === "skipped" ? "已跳过 · 可重新标注" : "未标注";
     ui.status.className = "status-pill " + item.status;
-    ui.image.hidden = true;
-    ui.placeholder.hidden = false;
-    ui.placeholder.textContent = "正在读取图片…";
-    ui.image.onload = () => { ui.image.hidden = false; ui.placeholder.hidden = true; };
-    ui.image.onerror = () => { ui.placeholder.textContent = "图片读取失败，请检查本地归档"; };
-    ui.image.src = "/api/image/" + encodeURIComponent(item.id) + "?v=" + String(Date.now());
+    loadImage(item);
     ui.input.value = item.status === "labeled" ? item.label : "";
     savedInput = ui.input.value;
     updateDirty();
