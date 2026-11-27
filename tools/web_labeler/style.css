@@ -66,7 +66,8 @@ footer .unsaved { color: var(--red); font-weight: 650; }
   .shell { width: min(100% - 24px, 560px); padding-top: 22px; }
   .topbar { flex-direction: column; gap: 14px; }
   .workspace { grid-template-columns: 1fr; }
-  .image-stage { min-height: 280px; padding: 16px; }\n  .image-stage img { width: 100%; }
+  .image-stage { min-height: 280px; padding: 16px; }
+  .image-stage img { width: 100%; }
   .control-panel { padding: 20px; }
   footer { flex-direction: column; }
   .progress-copy { align-items: flex-start; flex-direction: column; gap: 4px; }
