@@ -131,7 +131,7 @@ def make_handler(app: Labeler):
 
         def _authorized(self):
             host = self.headers.get("Host", "")
-            if host not in {"127.0.0.1:8765", "localhost:8765"}:
+            if host not in {f"127.0.0.1:{app.port}", f"localhost:{app.port}"}:
                 return False
             origin = self.headers.get("Origin")
             if origin and origin not in {"http://127.0.0.1:8765", "http://localhost:8765"}:
@@ -143,7 +143,7 @@ def make_handler(app: Labeler):
 
         def do_GET(self):
             parsed = urlparse(self.path)
-            if parsed.path == "/" and self.headers.get("Host") in {"127.0.0.1:8765", "localhost:8765"}:
+            if parsed.path == "/" and self.headers.get("Host") in {f"127.0.0.1:{app.port}", f"localhost:{app.port}"}:
                 body = (PAGE.replace('const token=location.hash.slice(1);', 'const token=location.hash.slice(1);')).encode()
                 self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Set-Cookie", f"labeler_token={app.token}; HttpOnly; SameSite=Strict; Path=/")
@@ -193,6 +193,7 @@ def main():
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
     app = Labeler(args.archive, args.manifest, args.progress)
+    app.port = args.port
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
     url = f"http://127.0.0.1:{args.port}/#{app.token}"
     print(f"Local blind-test labeler: {url.split('#')[0]}")
