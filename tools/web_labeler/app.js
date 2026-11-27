@@ -135,6 +135,7 @@
     } finally {
       busy = false;
       render();
+      if (!ui.input.disabled) ui.input.focus({ preventScroll: true });
       if (feedback) setMessage(feedback, feedbackKind);
     }
   }
