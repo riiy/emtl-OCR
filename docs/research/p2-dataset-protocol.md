@@ -32,7 +32,7 @@ python tools/prepare_dataset.py \
 
 ## 人工标注
 
-依赖 Python 3.10+、Pillow 和 Tkinter。运行：
+依赖 Python 3.10+ 和 Pillow；标注界面使用本地 HTTP 服务与浏览器，不依赖 Tkinter。运行：
 
 ```bash
 python tools/label_blind_test.py \
@@ -41,7 +41,7 @@ python tools/label_blind_test.py \
   --progress datasets/private/blind-test-progress.jsonl
 ```
 
-维护者亲自逐张标注；界面只显示图片，不显示或请求任何 OCR 预测。仅接受恰好四位 ASCII 数字字符串，保留前导零（例如 0042）。无法辨认时跳过，记录事件，并从 87 张备用图依序补足。每次提交/跳过立即追加 JSONL 并 fsync，关闭窗口可续标。不得根据模型预测修改标签。
+维护者亲自逐张标注；服务仅绑定 127.0.0.1:8765，浏览器界面只显示原图，不显示或请求任何 OCR 预测。仅接受恰好四位 ASCII 数字字符串，保留前导零（例如 0042）。支持上一张、下一张、提交、跳过、修改已有标签及 skipped 重新标注。浏览不写入事件；只有提交/跳过才追加 JSONL，并执行 flush/fsync。JSONL 是追加式审计日志，同一图片可有多条事件，最终状态以最后一条事件为准。达到 200 条最终 labeled 状态后停止新增标注，但仍允许修订；数量低于 200 时恢复补标。启动时自动定位第一张从未产生事件的图片，跳过已处理（包括 skipped）的图片；可手动返回修订。关闭服务后可续标。不得根据模型预测修改标签。
 
 ## 标签冻结
 
@@ -55,7 +55,7 @@ python tools/finalize_blind_test.py \
   --freeze datasets/private/blind-test-freeze.json
 ```
 
-冻结工具验证标签数量、唯一图片 ID、路径和图片哈希、四位字符串格式，并生成 manifest、进度文件和标签 CSV 的 SHA-256。冻结成功前不得运行 Benchmark。
+冻结工具按每张图片最后一次事件归约最终状态，允许修订历史；验证最终有效标签恰好 200 条、图片 ID 唯一、路径和图片哈希、四位字符串格式，并生成 manifest、完整事件日志和标签 CSV 的 SHA-256。冻结成功前不得运行 Benchmark。
 
 ## 发布边界
 
