@@ -1,31 +1,72 @@
 #!/usr/bin/env python3
-"""Validate 200 manual labels and emit a hash-audited frozen CSV."""
-import argparse,csv,hashlib,json
+"""Validate the final state of an append-only blind-test event log."""
+import argparse
+import csv
+import hashlib
+import json
 from pathlib import Path
-def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
-def finalize(mp,pp,lp,fp):
- mb=Path(mp).read_bytes();m=json.loads(mb);allowed={x["id"]:x for x in m["selected"]+m["reserve"]}
- events=[json.loads(x) for x in Path(pp).read_text().splitlines() if x.strip()];seen=set();labels=[]
- for e in events:
-  i=e.get("image_id")
-  if i not in allowed or i in seen:raise ValueError("Unknown or duplicate image event")
-  seen.add(i);item=allowed[i]
-  if e.get("path")!=item["path"] or e.get("sha256")!=item["sha256"]:raise ValueError("Manifest mismatch")
-  if e["status"]=="labeled":
-   v=e.get("label")
-   if not isinstance(v,str) or len(v)!=4 or not v.isascii() or not v.isdigit():raise ValueError("Label must be four ASCII digits")
-   labels.append({"image_id":i,"path":item["path"],"sha256":item["sha256"],"label":v})
-  elif e["status"]!="skipped":raise ValueError("Unknown status")
- if len(labels)!=m["target_labels"]:raise ValueError(f"Expected {m['target_labels']} labels; got {len(labels)}")
- labels.sort(key=lambda x:x["path"]);Path(lp).parent.mkdir(parents=True,exist_ok=True)
- with open(lp,"w",newline="",encoding="utf-8") as f:
-  w=csv.DictWriter(f,fieldnames=["image_id","path","sha256","label"]);w.writeheader();w.writerows(labels)
- result={"status":"FROZEN","label_count":len(labels),"skipped_count":sum(e["status"]=="skipped" for e in events),
-  "manifest_sha256":hashlib.sha256(mb).hexdigest(),"progress_sha256":sha(pp),"labels_sha256":sha(lp)}
- Path(fp).parent.mkdir(parents=True,exist_ok=True);Path(fp).write_text(json.dumps(result,indent=2)+"\n")
- return result
+
+from blind_test_progress import counts, read_events, reduce_events
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def finalize(manifest_path, progress_path, labels_path, freeze_path):
+    manifest_bytes = Path(manifest_path).read_bytes()
+    manifest = json.loads(manifest_bytes)
+    events = read_events(progress_path)
+    latest = reduce_events(events, manifest)
+    labeled_count, skipped_count = counts(latest)
+    target = int(manifest["target_labels"])
+    if labeled_count != target:
+        raise ValueError(f"Expected exactly {target} final labeled images; got {labeled_count}")
+
+    labels = []
+    for image_id, event in latest.items():
+        if event["status"] != "labeled":
+            continue
+        labels.append({
+            "image_id": image_id,
+            "path": event["path"],
+            "sha256": event["sha256"],
+            "label": event["label"],
+        })
+    if len({row["image_id"] for row in labels}) != target:
+        raise ValueError("Final labels contain duplicate image IDs")
+    labels.sort(key=lambda row: row["path"])
+
+    labels_path = Path(labels_path)
+    labels_path.parent.mkdir(parents=True, exist_ok=True)
+    with labels_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["image_id", "path", "sha256", "label"])
+        writer.writeheader()
+        writer.writerows(labels)
+
+    freeze = {
+        "status": "FROZEN",
+        "label_count": labeled_count,
+        "skipped_count": skipped_count,
+        "unique_images_with_events": len(latest),
+        "event_count": len(events),
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "progress_sha256": sha(progress_path),
+        "labels_sha256": sha(labels_path),
+    }
+    freeze_path = Path(freeze_path)
+    freeze_path.parent.mkdir(parents=True, exist_ok=True)
+    freeze_path.write_text(json.dumps(freeze, indent=2) + "\n", encoding="utf-8")
+    return freeze
+
+
 def main():
- p=argparse.ArgumentParser(description=__doc__)
- for x in ("manifest","progress","labels","freeze"):p.add_argument("--"+x,required=True)
- a=p.parse_args();print(json.dumps(finalize(a.manifest,a.progress,a.labels,a.freeze),indent=2))
-if __name__=="__main__":main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("manifest", "progress", "labels", "freeze"):
+        parser.add_argument("--" + name, required=True)
+    args = parser.parse_args()
+    print(json.dumps(finalize(args.manifest, args.progress, args.labels, args.freeze), indent=2))
+
+
+if __name__ == "__main__":
+    main()
