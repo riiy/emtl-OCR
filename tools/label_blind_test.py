@@ -50,7 +50,7 @@ $("submit").disabled=state.labeled>=state.target&&(!existing||existing.status!==
 }
 async function refresh(){state=await api("/api/state");if(!initialized){const first=state.items.findIndex(x=>!state.latest[x.id]);index=first>=0?first:0;initialized=true}if(index>=state.items.length)index=state.items.length-1;render()}
 async function move(delta){if(dirty&&!confirm("当前输入尚未提交，确定离开并丢弃吗？"))return;index=Math.max(0,Math.min(state.items.length-1,index+delta));render()}
-async function act(status){const item=current(),label=$("label").value;if(status==="labeled"&&(!/^[0-9]{4}$/.test(label)||label.length!==4)){alert("请输入恰好四位 ASCII 数字，例如 0042");return}
+async function act(status){if(status==="skipped"&&dirty&&!confirm("当前输入尚未提交，跳过将丢弃输入。确定继续吗？"))return;const item=current(),label=$("label").value;if(status==="labeled"&&(!/^[0-9]{4}$/.test(label)||label.length!==4)){alert("请输入恰好四位 ASCII 数字，例如 0042");return}
 try{await api("/api/event",{method:"POST",body:JSON.stringify({image_id:item.id,status,label:status==="labeled"?label:null})});dirty=false;await refresh();
 if(status==="labeled"&&state.labeled<state.target) {const next=state.items.findIndex((x,i)=>i>index&&!state.latest[x.id]);if(next>=0){index=next;render()}}
 else if(status==="skipped"){const next=state.items.findIndex((x,i)=>i>index&&!state.latest[x.id]);if(next>=0){index=next;render()}}
