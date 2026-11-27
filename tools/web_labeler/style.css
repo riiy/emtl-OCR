@@ -14,7 +14,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }
 button, input { font: inherit; }
-.shell { width: min(1040px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 26px; }
+.shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 26px; }
 .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 11px; font-weight: 750; letter-spacing: .13em; }
 h1 { margin: 0; font-size: clamp(25px, 4vw, 34px); letter-spacing: -.035em; }
@@ -27,15 +27,15 @@ h1 { margin: 0; font-size: clamp(25px, 4vw, 34px); letter-spacing: -.035em; }
 .progress-copy span { color: var(--muted); font-size: 12px; }
 .progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #edf0f4; }
 .progress-fill { height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width .18s ease; }
-.workspace { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .8fr); gap: 18px; align-items: stretch; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, .8fr); gap: 18px; align-items: stretch; }
 .image-panel, .control-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
 .image-panel { padding: 18px; display: flex; flex-direction: column; min-width: 0; }
 .image-meta { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .status-pill { border-radius: 99px; padding: 5px 9px; background: #eef1f5; color: #566273; font-size: 11px; font-weight: 650; }
 .status-pill.labeled { color: #11653e; background: #e8f6ee; }
 .status-pill.skipped { color: #8a5a12; background: #fff4dc; }
-.image-stage { min-height: 260px; flex: 1; display: flex; align-items: center; justify-content: center; margin: 18px 0 12px; border: 1px dashed #d6dce5; border-radius: 10px; background: #fafbfc; padding: 24px; }
-.image-stage img { display: block; max-width: min(100%, 505px); height: auto; image-rendering: pixelated; }
+.image-stage { min-height: 440px; flex: 1; display: flex; align-items: center; justify-content: center; margin: 18px 0 12px; border: 1px dashed #d6dce5; border-radius: 10px; background: #fafbfc; padding: 24px; }
+.image-stage img { display: block; width: min(100%, 920px); max-width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; }
 .placeholder { color: var(--muted); font-size: 13px; text-align: center; }
 .image-name { margin: 0; color: #8a94a3; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .control-panel { padding: 24px; display: flex; flex-direction: column; }
@@ -66,7 +66,7 @@ footer .unsaved { color: var(--red); font-weight: 650; }
   .shell { width: min(100% - 24px, 560px); padding-top: 22px; }
   .topbar { flex-direction: column; gap: 14px; }
   .workspace { grid-template-columns: 1fr; }
-  .image-stage { min-height: 210px; }
+  .image-stage { min-height: 280px; padding: 16px; }\n  .image-stage img { width: 100%; }
   .control-panel { padding: 20px; }
   footer { flex-direction: column; }
   .progress-copy { align-items: flex-start; flex-direction: column; gap: 4px; }
