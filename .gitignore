@@ -9,25 +9,26 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
-
 # Environments
 .venv/
 venv/
 env/
 ENV/
-
 # Build outputs
 build/
 dist/
-
 # Editors and operating systems
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
-
-# Local experiment outputs (curated artifacts may be copied to models/ or reports/)
+# Local experiment outputs
 outputs/
 runs/
 wandb/
 training/checkpoints/
+# Private source data, blind-test labels and annotation progress
+datasets/private/
+*blind-test-progress*.jsonl
+*blind-test-labels*.csv
+*blind-test-freeze*.json
