@@ -75,6 +75,16 @@ class WebLabelerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["resume_index"], 0)
 
+
+    def test_content_security_policy_allows_blob_image_urls(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port)
+        connection.request("GET", "/", headers={"Host": f"127.0.0.1:{self.port}"})
+        response = connection.getresponse()
+        response.read()
+        policy = response.getheader("Content-Security-Policy", "")
+        connection.close()
+        self.assertIn("img-src 'self' blob:", policy)
+
     def test_image_endpoint_checks_archive_hash(self):
         status, body, content_type = self.request("GET", "/api/image/sample")
         self.assertEqual(status, 200)
