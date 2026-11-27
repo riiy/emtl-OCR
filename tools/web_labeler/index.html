@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="labeler-token" content="__LABELER_TOKEN__">
+  <meta name="color-scheme" content="light dark">
+  <title>emtl-OCR · 盲测人工标注</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">EMTL-OCR / P2 BLIND TEST</p>
+        <h1>人工盲测标注</h1>
+        <p class="subheading">仅显示原始图片，不运行或显示任何 OCR 预测。</p>
+      </div>
+      <div class="privacy"><span class="privacy-dot"></span>仅限本机 · 不上传数据</div>
+    </header>
+
+    <section class="progress-card" aria-live="polite">
+      <div class="progress-copy">
+        <strong id="progress-count">加载中…</strong>
+        <span id="progress-detail">正在读取本地标注记录</span>
+      </div>
+      <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+    </section>
+
+    <section class="workspace">
+      <div class="image-panel">
+        <div class="image-meta">
+          <span id="image-index">— / 287</span>
+          <span id="image-status" class="status-pill">加载中</span>
+        </div>
+        <div class="image-stage">
+          <img id="captcha-image" alt="待人工识别的验证码图片" draggable="false">
+          <div id="image-placeholder" class="placeholder">正在读取图片…</div>
+        </div>
+        <p id="image-name" class="image-name"></p>
+      </div>
+
+      <div class="control-panel">
+        <label for="label-input">人工识别结果</label>
+        <input id="label-input" type="text" inputmode="numeric" autocomplete="off"
+               maxlength="4" pattern="[0-9]{4}" placeholder="四位数字" aria-describedby="input-help">
+        <p id="input-help" class="help">输入恰好四位 ASCII 数字，保留前导零，例如 <code>0042</code>。</p>
+        <div class="actions primary-actions">
+          <button id="submit-button" class="button button-primary" type="button">提交标注 <kbd>Enter</kbd></button>
+          <button id="skip-button" class="button button-secondary" type="button">跳过</button>
+        </div>
+        <div class="actions navigation-actions">
+          <button id="previous-button" class="button button-quiet" type="button">← 上一张</button>
+          <button id="next-button" class="button button-quiet" type="button">下一张 →</button>
+        </div>
+        <div id="capacity-note" class="capacity-note" hidden>已达到 200 条有效标注。可以继续浏览和修改已有标签；释放名额后可继续补充。</div>
+        <div id="message" class="message" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Enter 提交 · 上一张 / 下一张仅浏览 · 跳过可稍后重新标注</span>
+      <span id="save-state">所有更改实时保存到本地 JSONL</span>
+    </footer>
+  </main>
+</body>
+</html>
