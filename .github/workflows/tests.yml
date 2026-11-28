@@ -52,7 +52,7 @@ jobs:
           post-cleanup: all
       - name: Resolve Linux and Intel macOS lock
         shell: bash -el {0}
-        run: conda-lock lock --file environment.yml --lockfile conda-lock.yml
+        run: conda-lock lock --file environment.yml --virtual-package-spec virtual-packages.yml --lockfile conda-lock.yml
       - uses: actions/upload-artifact@v4
         with:
           name: p3-conda-lock

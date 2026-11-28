@@ -66,10 +66,10 @@ conda activate emtl-ocr-p3
 如需生成双平台的完整解析锁文件，在具备 conda-forge 网络访问的环境执行：
 
 ```bash
-conda-lock lock --file environment.yml --lockfile conda-lock.yml
+conda-lock lock --file environment.yml --virtual-package-spec virtual-packages.yml --lockfile conda-lock.yml
 ```
 
-随后可用 conda-lock install --name emtl-ocr-p3 conda-lock.yml --platform linux-64 或 --platform osx-64 安装。CI 的环境锁定 Job 会使用 conda-lock 对两个平台实际求解，并上传 conda-lock.yml Artifact。锁文件由实际 solver 生成，不手工伪造包 URL、build 或 hash；本次 PR 不把未经 solver 验证的锁文件提交到仓库。
+随后可用 conda-lock install --name emtl-ocr-p3 conda-lock.yml --platform linux-64 或 --platform osx-64 安装。virtual-packages.yml 将 linux-64 的最低 glibc 设为 2.17，并将 osx-64 的最低 macOS 版本设为 12.0；锁定命令显式使用该约束文件。CI 的环境锁定 Job 会使用 conda-lock 对两个平台实际求解，并上传 conda-lock.yml Artifact。锁文件由实际 solver 生成，不手工伪造包 URL、build 或 hash；本次 PR 不把未经 solver 验证的锁文件提交到仓库。
 
 ## 6. 运行训练
 
