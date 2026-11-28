@@ -1,0 +1,14 @@
+name: emtl-ocr-p3
+channels:
+  - conda-forge
+channel_priority: strict
+platforms:
+  - linux-64
+  - osx-64
+dependencies:
+  - python=3.12
+  - pytorch=2.14.1=cpu_generic_py312_*
+  - numpy=2.3.3
+  - pillow=13.0.0
+  - pytest=9.0.2
+  - conda-lock=4.0.5

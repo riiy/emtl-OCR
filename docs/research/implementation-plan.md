@@ -15,7 +15,7 @@
 
 ## P2 — 数据集建设、人工标注与公开数据
 
-**状态：** 人工标注和 Freeze 已完成；公开数据集整理通过独立 PR 进行。
+**状态：已完成，PR #4 已合并。**
 
 已完成：
 - 固定种子 20261127 的来源分层 880/220 训练/验证划分。
@@ -35,9 +35,18 @@
 
 P2 不运行 OCR Benchmark，不根据预测修改标签。
 
-## P3 — PyTorch 训练重建
+## P3 — PyTorch CPU 训练重建
 
-最多三个模型：原始 Baseline、更小 CNN、有限通道调整 CNN。使用同一 880/220 划分，有限数据增强，仅以内部验证集选择。保存配置、日志、Checkpoint 和环境版本。新实验标记为 reconstructed experiment。
+**状态：实施中；正式 18 次训练尚未运行。**
+
+- 三个模型 A/B/C，参数量分别为 83,888、29,812、83,736。
+- 使用固定 880/220 train/validation 划分，test split 不参与训练或模型选择。
+- 固定 AdamW、训练预算、Early Stopping、数据增强和三个随机种子。
+- conda-forge：Python 3.12、PyTorch 2.14.1 CPU Generic；Ubuntu 24.04 LTS x86_64 正式训练，Intel Mac x86_64 完整复现。
+- Ubuntu 9 次、Intel Mac 9 次，共 18 次；保存逐 Epoch 日志、Checkpoint、配置、环境信息和 SHA-256。
+- 使用验证集均值、标准差和 1 个百分点的简化模型选择规则；胜出架构使用中位数 Seed Checkpoint。
+- CI 运行环境锁定求解和合成数据 Smoke Test，不执行完整训练。
+- 新实验标记为 reconstructed experiment，不声称历史精确复现。
 
 ## P4 — 推理与公开固定测试集评估
 

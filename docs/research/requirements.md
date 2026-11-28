@@ -59,30 +59,62 @@
 
 ## 4. 训练实验
 
-最多比较三个模型，包含历史 tiny-CNN Baseline：
+最多比较三个模型，包含历史 tiny-CNN Baseline。原始训练脚本、完整配置和检查点尚未恢复；新实验必须标记为 reconstructed experiment，不得声称是历史训练的精确复现。
 
-- Model A：恢复历史模型结构的重建基线。
-- Model B：更小的 CNN。
-- Model C：有限调整通道数或卷积结构的 CNN。
+### 4.1 候选模型
 
-原始训练脚本、完整配置和检查点尚未恢复。新实验必须标记为 reconstructed experiment，不得声称是历史训练的精确复现。
+三个模型统一输入 64×24 RGB，三层 3×3、stride-2、padding-1 卷积，ReLU；FC1 使用 ReLU，FC2 输出 40 个 Logits 并 reshape 为 4×10。卷积层和全连接层均启用 Bias；不使用 BatchNorm、Dropout；三个模型全部随机初始化，不加载历史冻结权重。
 
-### 4.1 数据增强
+| 模型 | 卷积通道 | FC1 | 参数量 |
+|---|---|---:|---:|
+| A | 3→8→16→24 | 128 | 83,888 |
+| B | 3→6→12→16 | 64 | 29,812 |
+| C | 3→8→16→32 | 96 | 83,736 |
 
-只对训练集使用有限增强：
+Model A 的历史推理源码注释声称参数量为 83,984；按实际层维度计算为 83,888。P3 以实际结构和 PyTorch 参数计数为准，并保留该历史记录差异。
 
-- 轻微亮度与对比度变化。
-- 少量像素噪声。
-- 水平和垂直方向最多 1 像素平移。
-- 不使用旋转、裁剪、字符变形或随机擦除。
+### 4.2 固定训练配置
 
-验证集和测试集不做增强。增强范围、概率、随机种子必须记录。
+- 最大 100 Epoch；连续 15 Epoch 未提升 Validation 整图准确率则停止。
+- Batch Size 64；drop_last=False；num_workers=0。
+- AdamW，Learning Rate 0.001，Weight Decay 0.0001；不使用 Scheduler 或 Label Smoothing。
+- Loss 为四个数字位置的 Cross Entropy 平均值。
+- CPU 单线程：PyTorch intra-op / inter-op 均为 1；启用 deterministic algorithms。
+- Python、NumPy、PyTorch 随机状态固定。
+- 三个随机种子：20261127、20261128、20261129。
+- 每个 seed 下 A/B/C 使用相同 Epoch Shuffle、Batch 划分和逐图片增强序列；增强随机状态按 seed、epoch、image_id 派生，不受模型初始化的随机数消耗影响。
 
-### 4.2 模型选择规则
+### 4.3 数据预处理与增强
 
-首先比较内部验证集整图准确率。若较小模型与最高准确率模型相差不超过 1 个百分点，则选择较小模型；其后再比较模型体积和推理耗时。
+所有图片转换为 RGB，使用 BILINEAR Resize 到 64×24；反色归一化为 (255 - pixel) / 255.0。
 
-不增加第四个候选模型，不以测试集结果选择模型。
+仅训练集增强，按以下顺序执行：
+
+1. Brightness：独立概率 50%，倍率均匀采样 0.9～1.1。
+2. Contrast：独立概率 50%，倍率均匀采样 0.9～1.1。
+3. 反色归一化。
+4. Gaussian Noise：概率 30%，σ 均匀采样 0～0.02，RGB 通道独立采样，裁剪到 [0,1]。
+5. Translation：概率 50%，水平、垂直偏移分别从 -1、0、1 采样，归一化空间越界填 0。
+
+不使用旋转、裁剪、字符变形或随机擦除。Validation 不做随机增强。
+
+### 4.4 Checkpoint 与模型选择
+
+- Checkpoint 首先按 Validation 整图准确率选择；准确率相同时选择 Validation Loss 较低者。
+- Early Stopping 只根据 Validation 整图准确率改善重置 Patience；Loss 下降不重置 Patience。
+- Ubuntu 24.04 LTS x86_64 正式训练 9 次；Intel Mac x86_64 跨平台复现验证也完整训练 9 次。
+- 每个平台各训练 A/B/C × 三个随机种子，共 9 次；两个平台合计 18 次。
+- 报告每个模型三次 Validation 整图准确率的均值和样本标准差。
+- 模型架构按三次平均 Validation 准确率选择；若较小模型与最高平均值相差不超过 1 个百分点，选择参数量较少者。
+- 在胜出架构的三个 Seed 中选择 Validation 准确率中位数对应的 Checkpoint；准确率并列时选择 Validation Loss 较低者。
+- Mac 与 Ubuntu 按模型、Seed 配对比较，Validation 整图准确率差异须不超过 1 个百分点；超出时调查原因，不直接判定通过。
+- 不以公开固定 Test 集进行训练、架构选择、超参数调整或 P3 验收。
+
+### 4.5 环境与产物
+
+使用 conda-forge：Python 3.12、PyTorch 2.14.1 CPU Generic、NumPy 2.3.3、Pillow 13.0.0。正式环境为 Ubuntu 24.04 LTS x86_64，Intel Mac x86_64（macOS 12.0+）作为复现环境。两个平台不使用 CUDA、MPS 或 MKL。
+
+每次训练保存最佳 Checkpoint、逐 Epoch Training/Validation Loss 与整图准确率、Learning Rate、Epoch 耗时、实际配置、软硬件环境、运行状态及 Checkpoint SHA-256。训练产物保存在本地 outputs/，不提交公开数据集仓库。
 
 ## 5. Benchmark
 

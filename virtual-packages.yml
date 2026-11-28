@@ -1,0 +1,7 @@
+subdirs:
+  linux-64:
+    packages:
+      __glibc: "2.39"
+  osx-64:
+    packages:
+      __osx: "12.0"

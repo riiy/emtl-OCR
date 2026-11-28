@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "train/**"]
   pull_request:
     branches: [main]
 
@@ -39,3 +39,46 @@ jobs:
             --verify-images \
             --verify-labels \
             --verify-splits
+
+  p3-environment-lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          environment-name: emtl-ocr-p3
+          cache-environment: true
+          post-cleanup: all
+      - name: Resolve Linux and Intel macOS lock
+        shell: bash -el {0}
+        run: conda-lock lock --file environment.yml --virtual-package-spec virtual-packages.yml --lockfile conda-lock.yml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p3-conda-lock
+          path: conda-lock.yml
+          if-no-files-found: error
+          retention-days: 14
+
+  p3-training-smoke:
+    needs: p3-environment-lock
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          environment-name: emtl-ocr-p3
+          cache-environment: true
+          post-cleanup: all
+      - name: Verify CPU-only PyTorch
+        shell: bash -el {0}
+        run: |
+          python -c "import torch; assert torch.__version__.split('+')[0] == '2.14.1'; assert torch.version.cuda is None"
+      - name: Run synthetic-data P3 smoke tests
+        shell: bash -el {0}
+        run: python -m pytest -q tests/test_training.py
