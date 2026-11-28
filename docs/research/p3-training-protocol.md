@@ -49,7 +49,7 @@ Validation 仅执行确定性 Resize 和归一化，不做随机增强。
 
 ## 5. 运行环境
 
-使用 conda-forge 的 Python 3.12、PyTorch 2.14.1 CPU Generic、NumPy 2.3.3、Pillow 13.0.0。批准平台为 Ubuntu x86_64 和 Intel macOS x86_64；两个平台均须使用 CPU Generic 构建，不使用 CUDA、MPS 或 MKL。
+使用 conda-forge 的 Python 3.12、PyTorch 2.14.1 CPU Generic、NumPy 2.3.3、Pillow 13.0.0。正式训练平台为 Ubuntu 24.04 LTS x86_64 和 Intel macOS x86_64；两个平台均须使用 CPU Generic 构建，不使用 CUDA、MPS 或 MKL。
 
 已核对的包构建约束：
 - conda-forge PyTorch 2.14.1 cpu_generic 存在 linux-64 与 osx-64、Python 3.12 构建。
@@ -69,7 +69,7 @@ conda activate emtl-ocr-p3
 conda-lock lock --file environment.yml --virtual-package-spec virtual-packages.yml --lockfile conda-lock.yml
 ```
 
-随后可用 conda-lock install --name emtl-ocr-p3 conda-lock.yml --platform linux-64 或 --platform osx-64 安装。virtual-packages.yml 将 linux-64 的最低 glibc 设为 2.17，并将 osx-64 的最低 macOS 版本设为 12.0；锁定命令显式使用该约束文件。CI 的环境锁定 Job 会使用 conda-lock 对两个平台实际求解，并上传 conda-lock.yml Artifact。锁文件由实际 solver 生成，不手工伪造包 URL、build 或 hash；本次 PR 不把未经 solver 验证的锁文件提交到仓库。
+随后可用 conda-lock install --name emtl-ocr-p3 conda-lock.yml --platform linux-64 或 --platform osx-64 安装。virtual-packages.yml 将 linux-64 的目标 glibc 设为 2.39（Ubuntu 24.04 LTS 系统版本；此前 CI 证实 oneDNN 至少要求 2.28），并将 osx-64 的最低 macOS 版本设为 12.0；锁定命令显式使用该约束文件。CI 的环境锁定 Job 会使用 conda-lock 对两个平台实际求解，并上传 conda-lock.yml Artifact。锁文件由实际 solver 生成，不手工伪造包 URL、build 或 hash；本次 PR 不把未经 solver 验证的锁文件提交到仓库。
 
 ## 6. 运行训练
 

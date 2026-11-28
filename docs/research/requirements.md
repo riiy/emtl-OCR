@@ -102,7 +102,7 @@ Model A 的历史推理源码注释声称参数量为 83,984；按实际层维�
 
 - Checkpoint 首先按 Validation 整图准确率选择；准确率相同时选择 Validation Loss 较低者。
 - Early Stopping 只根据 Validation 整图准确率改善重置 Patience；Loss 下降不重置 Patience。
-- Ubuntu x86_64 正式训练 9 次；Intel Mac x86_64 跨平台复现验证也完整训练 9 次。
+- Ubuntu 24.04 LTS x86_64 正式训练 9 次；Intel Mac x86_64 跨平台复现验证也完整训练 9 次。
 - 每个平台各训练 A/B/C × 三个随机种子，共 9 次；两个平台合计 18 次。
 - 报告每个模型三次 Validation 整图准确率的均值和样本标准差。
 - 模型架构按三次平均 Validation 准确率选择；若较小模型与最高平均值相差不超过 1 个百分点，选择参数量较少者。
@@ -112,7 +112,7 @@ Model A 的历史推理源码注释声称参数量为 83,984；按实际层维�
 
 ### 4.5 环境与产物
 
-使用 conda-forge：Python 3.12、PyTorch 2.14.1 CPU Generic、NumPy 2.3.3、Pillow 13.0.0。正式环境为 Ubuntu x86_64，Intel Mac x86_64（macOS 12.0+）作为复现环境。两个平台不使用 CUDA、MPS 或 MKL。
+使用 conda-forge：Python 3.12、PyTorch 2.14.1 CPU Generic、NumPy 2.3.3、Pillow 13.0.0。正式环境为 Ubuntu 24.04 LTS x86_64，Intel Mac x86_64（macOS 12.0+）作为复现环境。两个平台不使用 CUDA、MPS 或 MKL。
 
 每次训练保存最佳 Checkpoint、逐 Epoch Training/Validation Loss 与整图准确率、Learning Rate、Epoch 耗时、实际配置、软硬件环境、运行状态及 Checkpoint SHA-256。训练产物保存在本地 outputs/，不提交公开数据集仓库。
 
