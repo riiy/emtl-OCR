@@ -46,7 +46,7 @@
 
 ## 4. 历史模型结构
 
-公开的 emtl 冻结推理实现 `src/emtl/_ocr_lightweight.py` 描述了一个 83,984 参数的 tiny-CNN，采用三层 3×3、stride-2 卷积（通道数 3→8→16→24），随后是 128 单元全连接层和 40 输出的全连接层（4 个位置 × 10 个数字）。
+公开的 emtl 冻结推理实现 `src/emtl/_ocr_lightweight.py` 的模块注释声称模型有 83,984 个参数；按实际层维度（3→8→16→24 卷积、128 单元 FC1、40 输出 FC2，均含 Bias）计算为 83,888 个参数。P3 以实际结构和 PyTorch 参数计数 83,888 为准，并保留这 96 个参数的历史注释差异，不据此推断历史训练权重或脚本状态。
 
 - [历史纯 Python 推理实现](https://github.com/riiy/emtl/blob/master/src/emtl/_ocr_lightweight.py)
 - [历史冻结模型权重文件](https://github.com/riiy/emtl/blob/master/src/emtl/models/tiny_captcha_model.b64)

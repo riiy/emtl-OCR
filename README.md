@@ -4,7 +4,7 @@
 
 emtl-OCR 记录并复现一项面向四位数字合成图像的 OCR 研究：从固定数据集、人工标注、PyTorch 训练，到纯 Python + Pillow 推理，以及与 ddddOCR 的离线对比。
 
-> **项目状态：P2 数据准备与人工标注已完成；公开数据集整理正在进行。** 本次数据整理包含 1,300 张公开图片和最终标签。模型训练尚未开始。历史成绩不是本仓库新实验结果。
+> **项目状态：P2 数据准备、人工标注、冻结及公开数据整理已完成（PR #4 已合并）；P3 训练代码与环境重建正在实施，正式训练尚未开始。** 本次公开数据集包含 1,300 张图片和最终标签。历史成绩不是本仓库新实验结果。
 
 ## 研究目标
 
@@ -58,7 +58,28 @@ emtl-OCR 记录并复现一项面向四位数字合成图像的 OCR 研究：从
 | P4 | 纯 Python 推理及三引擎 Benchmark | 未开始 |
 | P5 | 开源交付、独立 Review 和发布审查 | 未开始 |
 
-P2 操作历史见 [数据集协议](docs/research/p2-dataset-protocol.md) 和 [人工标注操作指南](docs/research/p2-operator-guide.md)。
+P2 操作历史见 [数据集协议](docs/research/p2-dataset-protocol.md) 和 [人工标注操作指南](docs/research/p2-operator-guide.md)。\n\n## P3 训练重建
+
+P3 使用固定的 A/B/C 三个 CNN 候选模型和三个随机种子。Ubuntu x86_64 是正式训练环境；Intel Mac x86_64 完整运行相同的九次训练，作为跨平台复现验证。两个平台合计 18 次训练。
+
+| 模型 | 卷积通道 | FC1 | 参数量 |
+|---|---|---:|---:|
+| A | 3→8→16→24 | 128 | 83,888 |
+| B | 3→6→12→16 | 64 | 29,812 |
+| C | 3→8→16→32 | 96 | 83,736 |
+
+固定环境为 conda-forge、Python 3.12、PyTorch 2.14.1 CPU Generic。训练配置、增强顺序、Checkpoint 规则、跨平台验收和命令见 [P3 训练协议](docs/research/p3-training-protocol.md)。
+
+```bash
+conda env create -f environment.yml
+conda activate emtl-ocr-p3
+python tools/train_models.py
+python tools/audit_training_runs.py --root outputs/p3 --output outputs/p3/audit.json
+```
+
+P3 只使用 train/validation split，不读取 Test 指标进行模型选择。200 张图片及标签是公开固定测试集，正式评估留待 P4 的模型冻结之后。
+
+
 
 ## 许可证与数据限制
 
